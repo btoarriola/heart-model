@@ -18,14 +18,22 @@ jobs:
       run: python --version
     - name: pip install
       run: pip install -r requirements.txt
+# DESCARGA DATASET
     - name: download dataset
-      run: wget -O data/heart-disease.csv ${{github.event.client_payload.dataseturl}}
+      run: wget -O data/heart_disease.csv ${{github.event.client_payload.dataseturl}}
     - name: cat dataset
-      run: cat data/heart-disease.csv
+      run: cat data/heart_disease.csv
+ #EJECUTA EL MODELO 
     - name: train model
       run: python model/train.py
+
+
+
+#DOCKER BUILD
     - name: docker build
       run: docker build -t ${{secrets.DOCKER_USER}}/${{secrets.MODEL_NAME}}:${{github.event.client_payload.sha}} .
+   
+   #DOCKER LOGIN AND PUSH
     - name: docker login
       env:
         DOCKER_USER: ${{secrets.DOCKER_USER}}
@@ -34,6 +42,8 @@ jobs:
         docker login -u $DOCKER_USER -p $DOCKER_PASSWORD 
     - name: docker Push
       run: docker push ${{secrets.DOCKER_USER}}/${{secrets.MODEL_NAME}}:${{ github.event.client_payload.sha }}
+  
+   # UPDATE K8S SETTINGS 
     - name: update docker user in k8 
       run: sed -i 's/{docker_user}/${{secrets.DOCKER_USER}}/g' manifests/k8s.yml
     - name: update model name in k8 
@@ -44,6 +54,9 @@ jobs:
       run: sed -i 's/{github.sha}/${{ github.event.client_payload.sha }}/g' manifests/k8s.yml
     - name: show k8s.yml 
       run: cat manifests/k8s.yml
+# DEPLOY AND WAIT 
+
+
     - uses: okteto/context@2.7.0
       with:
         token: ${{secrets.OKTETO_TOKEN }}
@@ -55,4 +68,4 @@ jobs:
       with:
         namespace: ${{secrets.OKTETO_NAMESPACE }}
         manifest: manifests/k8s.yml
-        tag: ${{ secrets.DOCKER_USERNAME }}/${{secrets.MODEL_NAME}}:${{ github.event.client_payload.sha }}
+        tag: ${{ secrets.DOCKER_USERNAME }}/${{secrets.MODEL_NAME}}:${{ github.sha }}
